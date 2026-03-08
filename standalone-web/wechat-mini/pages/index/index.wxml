@@ -1,0 +1,40 @@
+<!--index.wxml-->
+<view class="container">
+  <view class="header">
+    <view class="logo-area">
+      <view class="icon-box">
+        <text class="icon">✂️</text>
+      </view>
+      <view class="title-area">
+        <text class="title">LooongImg</text>
+        <text class="subtitle">Auto Long Screenshot</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="main-content">
+    <view class="upload-area" bindtap="chooseVideo" wx:if="{{!videoPath}}">
+      <view class="upload-box">
+        <text class="upload-icon">⬆️</text>
+        <text class="upload-title">选择录屏视频</text>
+        <text class="upload-desc">支持保存到手机相册的视频</text>
+      </view>
+    </view>
+
+    <view class="video-preview" wx:if="{{videoPath}}">
+      <video class="video-element" src="{{videoPath}}" id="myVideo" controls="{{false}}" autoplay="{{false}}" muted="{{true}}"></video>
+      <button class="primary-btn" bindtap="startStitching" loading="{{isProcessing}}">
+        {{isProcessing ? '正在拼命中 ' + progress + '%' : '开始自动拼接'}}
+      </button>
+    </view>
+
+    <view class="result-area" wx:if="{{resultImage}}">
+      <text class="success-text">✅ 拼接成功！已生成长截图。</text>
+      <image class="result-image" src="{{resultImage}}" mode="widthFix" show-menu-by-longpress></image>
+      <button class="primary-btn save-btn" bindtap="saveImage">保存到相册</button>
+    </view>
+  </view>
+
+  <canvas type="2d" id="captureCanvas" class="offscreen-canvas"></canvas>
+  <canvas type="2d" id="stitchCanvas" class="offscreen-canvas"></canvas>
+</view>

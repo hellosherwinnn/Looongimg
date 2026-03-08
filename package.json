@@ -1,0 +1,17 @@
+{
+  "name": "looongimg-monorepo",
+  "version": "1.0.0",
+  "description": "Monorepo for LooongImg Standalone Web and Backend Core. / LooongImg 单机网页版与后端核心版",
+  "scripts": {
+    "dev": "npm run dev:web",
+    "dev:web": "npm run dev --prefix standalone-web",
+    "dev:backend-server": "npm run dev:backend --prefix backend-core/server",
+    "dev:backend-client": "npm run dev --prefix backend-core/client",
+    "dev:backend-all": "concurrently \"npm run dev:backend-server\" \"npm run dev:backend-client\"",
+    "deploy:web": "npm run deploy --prefix standalone-web",
+    "install:all": "npm install --prefix standalone-web && npm install --prefix backend-core/server && npm install --prefix backend-core/client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
