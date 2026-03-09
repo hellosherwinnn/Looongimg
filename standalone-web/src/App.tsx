@@ -40,7 +40,7 @@ export default function App() {
           setIsCoiMissing(true);
         }
       }
-    }, 2000); // Give service worker a moment to kick in
+    }, 5000); // Give service worker plenty of time to kick in on mobile
   }, []);
 
   const videoRef = useRef<HTMLVideoElement>(null);
