@@ -23,6 +23,25 @@ export default function App() {
   const [result, setResult] = useState<StitchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string>('准备就绪');
+  const [isCoiMissing, setIsCoiMissing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Detect mobile / 检测是否为手机
+    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+    const mobile = mobileRegex.test(navigator.userAgent);
+    setIsMobile(mobile);
+
+    // Check for COI support / 检查是否支持安全隔离环境
+    // If not isolated and it's not local development, it might be a block
+    setTimeout(() => {
+      if (typeof SharedArrayBuffer === 'undefined' || !window.crossOriginIsolated) {
+        if (window.location.protocol === 'https:') {
+          setIsCoiMissing(true);
+        }
+      }
+    }, 2000); // Give service worker a moment to kick in
+  }, []);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -173,6 +192,58 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {/* Compatibility Guard Modal / 兼容性检查弹窗 */}
+      <AnimatePresence>
+        {isCoiMissing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 text-center"
+            >
+              <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-10 h-10 text-amber-500" />
+              </div>
+              <h3 className="text-2xl font-bold mb-4">浏览器不兼容 / Environment Restricted</h3>
+              <p className="text-gray-600 mb-8 leading-relaxed">
+                {isMobile ? (
+                  <>
+                    检测到您正在使用微信或受限浏览器。为了保护隐私并进行本地视频处理，请点击右上角并选择 <strong>“在浏览器中打开”</strong> (Safari 或 Chrome)。
+                  </>
+                ) : (
+                  <>
+                    当前环境未开启安全隔离。请尝试刷新页面，或更换 Chrome/Edge 浏览器访问。
+                  </>
+                )}
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="w-full bg-blue-600 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className="w-5 h-5" />
+                  尝试刷新页面
+                </button>
+                <button
+                  onClick={() => setIsCoiMissing(false)}
+                  className="w-full bg-gray-100 text-gray-500 py-4 rounded-2xl font-semibold"
+                >
+                  仍然尝试使用 (可能失效)
+                </button>
+              </div>
+              <p className="mt-6 text-[10px] text-gray-400 uppercase tracking-widest">
+                Safe Context: {window.isSecureContext ? 'YES' : 'NO'} | COI: {window.crossOriginIsolated ? 'YES' : 'NO'}
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="max-w-5xl mx-auto p-6 md:p-12">
         <AnimatePresence mode="wait">
