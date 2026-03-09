@@ -132,8 +132,13 @@ export async function extractFramesClient(
     console.log("File written to FFmpeg FS");
 
     // Run FFmpeg command to extract frames / 运行 FFmpeg 命令提取关键帧
-    console.log("Executing FFmpeg command...");
-    await ffmpeg.exec(['-i', inputName, '-vf', `fps=${fps}`, 'out%d.png']);
+    // We scale down to 1080p max to prevent OOM on mobile / 限制最高1080p以防止手机内存溢出
+    console.log("Executing FFmpeg command with downscaling...");
+    await ffmpeg.exec([
+        '-i', inputName,
+        '-vf', `fps=${fps},scale=-1:'min(1080,ih)'`,
+        'out%d.png'
+    ]);
     console.log("FFmpeg command execution finished");
 
     console.log("Listing FFmpeg directory...");
