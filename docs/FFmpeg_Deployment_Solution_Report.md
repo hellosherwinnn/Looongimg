@@ -11,9 +11,10 @@
 *   **路径错误**: 在 GitHub Pages 的子路径下（如 `/repo-name/`），程序如果使用 `/` 开头的绝对路径，会找不到资源文件。
 *   **无感知下载**: FFmpeg 核心文件约 32MB，弱网环境下下载较慢。如果 UI 没有进度提示，用户会误以为是死机。
 
-### 2. CI/CD (GitHub Actions) 部署失效
-*   **目录结构错误**: GitHub 只识别根目录下的 `.github/workflows/`。如果把这个文件夹放到了子目录（如 `frontend/.github/...`），部署永远不会触发。
-*   **构建错误**: 缺少 React 类型定义 (`@types/react`) 或 `tsconfig.json` 配置不当（缺少 `dom` 环境），会导致 CI 构建阶段报错崩溃。
+### 3. 手机端无法打开 (Mobile Loading Failure)
+*   **核心原因**: 微信/QQ等内置浏览器会禁用 `SharedArrayBuffer` 导致 Wasm 无法运行。
+*   **路径冲突**: 手机浏览器对 Service Worker 的作用域判定较严，URL 结尾是否带 `/` 会影响脚本加载。
+*   **静默失败**: 如果环境不支持，FFmpeg 脚本会静默报错，导致页面白屏或长时间无响应。
 
 ---
 
