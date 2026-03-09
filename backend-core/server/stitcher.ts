@@ -238,7 +238,8 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
         const debugPath = path.join(tempDir, 'shift_debug.txt');
         fs.writeFileSync(debugPath, `Stitching Mode: Total Frames=${frames.length}\n`);
 
-        // --- Pass 0: Loading & Overlay Detection ---
+        // --- Pass 0: Loading & Data Extraction ---
+        let lastVelocity = 0;
         for (let i = 0; i < frames.length; i++) {
             const img = await loadImage(frames[i]);
             if (!exCtx) throw new Error("Could not create canvas context");
@@ -248,6 +249,7 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
 
             let status: 'VALID' | 'OVERLAY' | 'SKIPPED' = 'VALID';
             let confidence = 0;
+            let shift = 0;
 
             const lastValid = loadedFrames.slice().reverse().find(f => f.status === 'VALID');
 
@@ -261,46 +263,35 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
                     fs.appendFileSync(debugPath, `[PHASE 0] Frame ${i}: OVERLAY (diff: ${match.diff.toFixed(2)}, shift: ${match.shift}). Skipping.\n`);
                 } else if (match.confidence < 0.005) {
                     status = 'SKIPPED';
+                } else {
+                    // Velocity smoothing / 滚动惯性平滑
+                    const velocityDiff = Math.abs(match.shift - lastVelocity);
+                    const velocityLimit = height * CONFIG.VELOCITY_LIMIT_RATIO;
+
+                    if (velocityDiff > velocityLimit && Math.abs(match.shift) > 10) {
+                        shift = lastVelocity;
+                    } else {
+                        shift = match.shift;
+                        lastVelocity = match.shift;
+                    }
                 }
+
+                // --- CRITICAL MEMORY OPTIMIZATION ---
+                // Discard pixel data of the PREVIOUS frame once we have the shift.
+                // This keeps memory constant (2 frames max) instead of linear.
+                lastValid.data = null;
             }
 
             loadedFrames.push({
                 index: i, path: frames[i], data: currentData,
-                status, shift: 0, globalY: 0, confidence
+                status, shift, globalY: 0, confidence
             });
 
             if (callback) callback(30 + Math.floor((i / frames.length) * 30));
         }
 
-        // --- Pass 1: Shift Calculation & Velocity/Confidence Constraints ---
-        let prevValid: FrameInfo | null = null;
-        let lastVelocity = 0;
-
-        for (const frame of loadedFrames) {
-            if (frame.status !== 'VALID') continue;
-
-            if (prevValid && prevValid.data && frame.data) {
-                const match = getConsensusShift(prevValid.data, frame.data, maskW);
-                let shift = match.shift;
-
-                const velocityDiff = Math.abs(shift - lastVelocity);
-                const velocityLimit = height * CONFIG.VELOCITY_LIMIT_RATIO;
-
-                if ((velocityDiff > velocityLimit && Math.abs(shift) > 10) || match.confidence < 0.005) {
-                    fs.appendFileSync(debugPath, `[PHASE 1] Frame ${frame.index}: Shaky match (conf: ${match.confidence.toFixed(3)}). Using inertia.\n`);
-                    // Instead of skipping, we assume constant velocity to bridge the gap
-                    frame.shift = lastVelocity;
-                    frame.confidence = match.confidence;
-                } else {
-                    frame.shift = shift;
-                    frame.confidence = match.confidence;
-                    lastVelocity = shift;
-                }
-            }
-            if (frame.status === 'VALID') {
-                prevValid = frame;
-            }
-        }
+        // The very last frame will still have data, clear it now to free up space for drawing
+        for (const f of loadedFrames) f.data = null;
 
         // --- Pass 2: Global Coordinate Projection & Normalization ---
         let currentGlobalY = 0;
@@ -336,10 +327,6 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
         const fCtx = finalCanvas.getContext('2d');
         if (!fCtx) throw new Error("Could not create final canvas context");
 
-        const tempCanvas = createCanvas(width, contentH);
-        const tCtx = tempCanvas.getContext('2d');
-        if (!tCtx) throw new Error("Could not create temp canvas");
-
         const drawingFrames = loadedFrames.filter(f => f.status === 'VALID');
 
         // Draw Header
@@ -349,20 +336,15 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
         // Draw Content
         for (let i = 0; i < drawingFrames.length; i++) {
             const frame = drawingFrames[i];
-            if (frame.data) {
-                tCtx.putImageData(frame.data, 0, 0);
-                fCtx.drawImage(tempCanvas, 0, headerH + frame.globalY);
-            }
+            // Reload image from disk to save RAM (keeps memory constant during drawing)
+            const frameImg = await loadImage(frame.path);
+            fCtx.drawImage(frameImg, 0, headerH, width, contentH, 0, headerH + frame.globalY, width, contentH);
+
             if (callback) callback(70 + Math.floor((i / drawingFrames.length) * 20));
         }
 
-        // Free data buffers
-        for (const f of loadedFrames) {
-            f.data = null;
-        }
-
         // Draw Footer
-        const lowestValidFrame = loadedFrames.find(f => f.status === 'VALID' && Math.abs(f.globalY - maxY) < 0.1);
+        const lowestValidFrame = loadedFrames.slice().reverse().find(f => f.status === 'VALID' && Math.abs(f.globalY - maxY) < 0.1);
         const lowestImg = lowestValidFrame ? await loadImage(lowestValidFrame.path) : firstImg;
         fCtx.drawImage(lowestImg, 0, height - footerH, width, footerH, 0, finalStitchedHeight - footerH, width, footerH);
 

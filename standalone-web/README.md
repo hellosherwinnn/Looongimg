@@ -7,7 +7,7 @@ A powerful, fully decentralized web application for stitching long scrolling scr
 ## ✨ Features / 核心特性
 - **Pure Client-Side / 纯客户端计算**: No uploads, 100% private. / 视频无需上传，保证100%隐私安全。
 - **Zero Cost / 零成本运营**: Can be hosted for free on GitHub Pages. / 可作为纯静态文件托管在 GitHub Pages 等平台，零服务器运行成本。
-- **Cross-Platform / 跨平台兼容**: Works in any modern browser with WebAssembly support. / 支持任何现代浏览器（依靠 WebAssembly），手机/电脑双平台互通。
+- **Desktop Optimal / 桌面端优选**: Optimized for standard browsers. Mobile support is currently limited. / 针对桌面版浏览器优化。移动端目前存在兼容性限制。
 
 ## 🚀 Getting Started / 快速开始
 

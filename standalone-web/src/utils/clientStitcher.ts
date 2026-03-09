@@ -130,12 +130,20 @@ function getConsensusShift(img1: ImageData, img2: ImageData, maskW: number): { s
 /**
  * Process array of extracted image URLs and stitch them into a single long screenshot.
  */
-export async function processFramesClient(frameUrls: string[], onProgress?: (p: number) => void): Promise<ClientStitchResult> {
+export async function processFramesClient(
+    frameUrls: string[],
+    onProgress?: (p: number) => void,
+    options: { lowMemory?: boolean } = {}
+): Promise<ClientStitchResult> {
     if (frameUrls.length === 0) throw new Error("No frames to process");
 
     const sampleImg = await loadImage(frameUrls[0]);
     const width = sampleImg.width;
     const height = sampleImg.height;
+
+    // Use tighter limits in low memory mode / 低内存模式使用更严苛的限制
+    const maxHeight = options.lowMemory ? 8192 : CONFIG.MAX_CANVAS_HEIGHT;
+    const outputQuality = options.lowMemory ? 0.7 : CONFIG.OUTPUT_QUALITY;
 
     const headerH = Math.floor(height * CONFIG.HEADER_RATIO);
     const footerH = Math.floor(height * CONFIG.FOOTER_RATIO);
@@ -218,7 +226,7 @@ export async function processFramesClient(frameUrls: string[], onProgress?: (p: 
     const rawHeight = maxY + contentH + headerH + footerH;
 
     // Scale down if exceeds browser limits / 如果超过浏览器极限高度则按比例缩小
-    const scale = rawHeight > CONFIG.MAX_CANVAS_HEIGHT ? CONFIG.MAX_CANVAS_HEIGHT / rawHeight : 1;
+    const scale = rawHeight > maxHeight ? maxHeight / rawHeight : 1;
     const finalWidth = Math.floor(width * scale);
     const finalHeight = Math.floor(rawHeight * scale);
 
@@ -260,7 +268,7 @@ export async function processFramesClient(frameUrls: string[], onProgress?: (p: 
             const url = URL.createObjectURL(blob!);
             if (onProgress) onProgress(100);
             r({ imageUrl: url, width: finalWidth, height: finalHeight });
-        }, 'image/jpeg', CONFIG.OUTPUT_QUALITY);
+        }, 'image/jpeg', outputQuality);
     });
 }
 

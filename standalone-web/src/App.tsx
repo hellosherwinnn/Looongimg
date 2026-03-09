@@ -25,6 +25,7 @@ export default function App() {
   const [statusText, setStatusText] = useState<string>('准备就绪');
   const [isCoiMissing, setIsCoiMissing] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [lowMemory, setLowMemory] = useState(false);
 
   useEffect(() => {
     // Detect mobile / 检测是否为手机
@@ -92,7 +93,7 @@ export default function App() {
             setProgress(Math.floor(parseInt(p.split(':')[1]) * 0.1)); // Give download first 10%
           }
         }
-      });
+      }, { lowMemory });
 
       if (frames.length === 0) throw new Error('No frames extracted / 无法从视频中提取有效帧');
 
@@ -100,7 +101,7 @@ export default function App() {
       const stitchResult = await processFramesClient(frames, (p) => {
         setStatusText(`正在缝合长截图中: ${p}%`);
         setProgress(40 + Math.floor(p * 0.6));
-      });
+      }, { lowMemory });
 
       setResult(stitchResult);
       setProgress(100);
@@ -343,13 +344,31 @@ export default function App() {
                   </h3>
 
                   {!result && !isProcessing && (
-                    <button
-                      onClick={startStitching}
-                      className="w-full bg-[#1D1D1F] text-white py-5 rounded-2xl font-semibold text-lg flex items-center justify-center gap-3 hover:bg-black transition-all active:scale-[0.98] shadow-lg shadow-black/10"
-                    >
-                      <Scissors className="w-6 h-6" />
-                      开始自动拼接
-                    </button>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-amber-50 rounded-2xl border border-amber-100 mb-4">
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="w-5 h-5 text-amber-600" />
+                          <div>
+                            <p className="text-sm font-bold text-amber-900">低内存兼容模式</p>
+                            <p className="text-[10px] text-amber-700">手机端崩溃时推荐开启</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setLowMemory(!lowMemory)}
+                          className={`w-12 h-6 rounded-full transition-colors relative ${lowMemory ? 'bg-blue-600' : 'bg-gray-300'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${lowMemory ? 'left-7' : 'left-1'}`} />
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={startStitching}
+                        className="w-full bg-[#1D1D1F] text-white py-5 rounded-2xl font-semibold text-lg flex items-center justify-center gap-3 hover:bg-black transition-all active:scale-[0.98] shadow-lg shadow-black/10"
+                      >
+                        <Scissors className="w-6 h-6" />
+                        开始自动拼接
+                      </button>
+                    </div>
                   )}
 
                   {isProcessing && (

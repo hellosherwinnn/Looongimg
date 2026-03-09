@@ -105,38 +105,33 @@ export async function loadFFmpeg(onProgress?: (msg: string) => void) {
 export async function extractFramesClient(
     videoFile: File,
     fps: number = 30,
-    onProgress?: (progress: number | string) => void
+    onProgress?: (progress: number | string) => void,
+    options: { lowMemory?: boolean } = {}
 ): Promise<string[]> {
-    console.log("extractFramesClient started for file:", videoFile.name);
+    console.log("extractFramesClient started for file:", videoFile.name, "LowMemory:", options.lowMemory);
     const ffmpeg = await loadFFmpeg((msg) => onProgress?.(msg));
-    console.log("FFmpeg instance ready in extractFramesClient");
+
+    const extractionFps = options.lowMemory ? 10 : fps;
+    const maxH = options.lowMemory ? 720 : 1080;
 
     if (onProgress) {
         ffmpeg.on('log', ({ message }: { message: string }) => {
-            console.log("FFmpeg Log:", message);
             onProgress(message);
         });
         ffmpeg.on('progress', ({ progress }: { progress: number }) => {
-            console.log("FFmpeg Progress:", progress);
             onProgress(Math.floor(progress * 100));
         });
     }
 
     const inputName = 'input.mp4';
-    console.log("Fetching file data...");
     const data = await fetchFile(videoFile);
-    console.log("File data fetched, length:", data.length);
-
-    console.log("Writing file to FFmpeg FS...");
     await ffmpeg.writeFile(inputName, data);
-    console.log("File written to FFmpeg FS");
 
-    // Run FFmpeg command to extract frames / 运行 FFmpeg 命令提取关键帧
-    // We scale down to 1080p max to prevent OOM on mobile / 限制最高1080p以防止手机内存溢出
-    console.log("Executing FFmpeg command with downscaling...");
+    // Run FFmpeg command to extract frames
+    // Low Memory: 10fps + 720p scaling / 低内存模式：10帧/秒 + 720p 缩放
     await ffmpeg.exec([
         '-i', inputName,
-        '-vf', `fps=${fps},scale=-1:'min(1080,ih)'`,
+        '-vf', `fps=${extractionFps},scale=-1:'min(${maxH},ih)'`,
         'out%d.png'
     ]);
     console.log("FFmpeg command execution finished");

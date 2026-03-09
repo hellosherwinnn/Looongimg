@@ -1,6 +1,8 @@
 # LooongImg 📸 (Monorepo)
 
-**[Live Demo / 在线演示 🚀](https://hellosherwinnn.github.io/Looongimg/)**
+**[Live Demo / 在线演示 🚀](https://hellosherwinnn.github.io/Looongimg/)**  
+> ⚠️ **Note**: The standalone web version (FFmpeg.wasm) is currently optimized for **Desktop** only. Mobile browsers may experience loading issues or crashes due to hardware/memory limitations. For mobile use, please refer to the [Backend Core Service](#2-backend-core-service--后端核心服务版).  
+> ⚠️ **注意**：纯前端版（FFmpeg.wasm）目前仅针对**桌面浏览器**优化。由于手机硬件和内存限制，移动端可能会出现白屏或崩溃。手机端建议使用[后端核心服务版](#2-backend-core-service--后端核心服务版)。
 
 ## 💡 Why LooongImg? / 为什么做这个项目？
 
@@ -16,6 +18,7 @@ Welcome to **LooongImg**. This project provides a powerful solution for stitchin
 
 ### 1. [Standalone Web App / 纯前端脱机版 (Live)](./standalone-web)
 - **Status / 状态**: **Deployed to GitHub Pages** / **已部署至 GitHub Pages**。
+- **Platforms / 平台**: **Desktop Only (Recommended)** / **仅限桌面端（推荐）**。Due to mobile browser memory limits, this version may crash on smartphones. / 手机端由于内存限制可能会崩溃。
 - **Core / 核心**: React + FFmpeg.wasm (WebAssembly)。
 - **Privacy / 隐私**: **100% Private**. All video processing (frame extraction, alignment, stitching) happens locally in your browser. No data ever leaves your device. / **绝对隐私**。所有视频处理（抽帧、对齐、拼接）均在浏览器本地完成，数据无需上传。
 - **Security / 安全**: Implements Cross-Origin Isolation (COI) to enable shared memory processing in the browser. / 实现了跨域隔离 (COI) 以开启浏览器的共享内存处理能力。
