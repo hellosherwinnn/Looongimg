@@ -25,7 +25,7 @@ const CONFIG = {
     STITCH_DYNAMIC_THRESHOLD_SLOPE: 150,
     MAX_SHIFT_RATIO: 0.65, // Max 65% height per frame
     VELOCITY_LIMIT_RATIO: 0.25, // Max 25% change in shift per frame
-    MAX_CANVAS_HEIGHT: 32767, // node-canvas / Cairo limit
+    MAX_CANVAS_HEIGHT: 30000, // Slightly below Cairo limit for safety
 };
 
 export interface StitchResult {
@@ -326,7 +326,7 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
         const finalWidth = Math.floor(width * scale);
         const finalHeight = Math.floor(rawHeight * scale);
 
-        console.log(`[STITCH] Final dimensions: ${finalWidth}x${finalHeight} (Original: ${width}x${rawHeight}, Scale: ${scale.toFixed(4)})`);
+        console.log(`[STITCH-V3-FIXED] Final dimensions: ${finalWidth}x${finalHeight} (Original: ${width}x${rawHeight}, Scale: ${scale.toFixed(4)})`);
 
         const finalCanvas = createCanvas(finalWidth, finalHeight);
         const fCtx = finalCanvas.getContext('2d');
