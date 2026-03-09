@@ -22,6 +22,7 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<StitchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusText, setStatusText] = useState<string>('准备就绪');
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -61,18 +62,25 @@ export default function App() {
     setError(null);
 
     try {
-      // 1. Extract Frames locally using FFmpeg.wasm / 步骤 1：使用浏览器本地 FFmpeg 提取视频帧
+      // 1. Extract Frames locally using FFmpeg.wasm
       const frames = await extractFramesClient(videoFile, 30, (p) => {
         if (typeof p === 'number') {
-          setProgress(Math.floor(p * 0.4)); // First 40% is extraction / 前 40% 的进度分配给解码抽帧
+          setStatusText('正在从视频中提取帧...');
+          setProgress(Math.floor(p * 0.4));
+        } else {
+          setStatusText(p); // String progress like "Downloading Core: 45%"
+          if (p.includes('Downloading')) {
+            setProgress(Math.floor(parseInt(p.split(':')[1]) * 0.1)); // Give download first 10%
+          }
         }
       });
 
       if (frames.length === 0) throw new Error('No frames extracted / 无法从视频中提取有效帧');
 
-      // 2. Stitch Frames locally / 步骤 2：在用户浏览器本地拼接图片
+      // 2. Stitch Frames locally
       const stitchResult = await processFramesClient(frames, (p) => {
-        setProgress(40 + Math.floor(p * 0.6)); // Remaining 60% is stitching / 后 60% 的进度分配给像素拼接运算
+        setStatusText(`正在缝合长截图中: ${p}%`);
+        setProgress(40 + Math.floor(p * 0.6));
       });
 
       setResult(stitchResult);
@@ -284,7 +292,7 @@ export default function App() {
                         <span className="text-blue-600">{progress}%</span>
                       </div>
                       <p className="text-center text-gray-400 text-sm animate-pulse">
-                        正在分析视频帧并计算重叠区域...
+                        {statusText}
                       </p>
                     </div>
                   )}
