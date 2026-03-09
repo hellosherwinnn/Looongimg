@@ -106,6 +106,11 @@ export default function App() {
       setProgress(100);
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
 
+      // 3. Cleanup: Revoke all frame Blob URLs to free up massive amount of RAM
+      // 清理：销毁所有提取帧的 Blob URL 以释放大量内存，防止手机浏览器崩溃
+      frames.forEach(url => URL.revokeObjectURL(url));
+      console.log(`[Memory] Revoked ${frames.length} frame objects.`);
+
     } catch (err: any) {
       console.error('Stitching Error:', err);
       setError(err.message || 'An error occurred during local processing / 本地处理过程中发生错误');

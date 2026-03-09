@@ -27,6 +27,8 @@ const CONFIG = {
     STITCH_DYNAMIC_THRESHOLD_SLOPE: 150, // Slope to adjust confidence based on shift size / 基于位移幅度调整置信度斜率
     MAX_SHIFT_RATIO: 0.65,       // Max allowed vertical shift per frame / 允许的最大单帧垂直滚动比例
     VELOCITY_LIMIT_RATIO: 0.25,  // Max allowed velocity change / 允许的最大滚动速度突变
+    MAX_CANVAS_HEIGHT: 16384,    // Safety limit for mobile browsers / 手机浏览器安全高度限制
+    OUTPUT_QUALITY: 0.85,        // JPEG quality for memory efficiency / JPEG 压缩质量以节省内存
 };
 
 export interface ClientStitchResult {
@@ -223,11 +225,23 @@ export async function processFramesClient(frameUrls: string[], onProgress?: (p: 
     maxY -= minY;
 
     // --- Pass 3: Drawing / 第三遍遍历：将有效的重叠区域绘制并输出为单张图片 ---
-    const finalHeight = maxY + contentH + headerH + footerH;
+    const rawHeight = maxY + contentH + headerH + footerH;
+
+    // Scale down if exceeds browser limits / 如果超过浏览器极限高度则按比例缩小
+    const scale = rawHeight > CONFIG.MAX_CANVAS_HEIGHT ? CONFIG.MAX_CANVAS_HEIGHT / rawHeight : 1;
+    const finalWidth = Math.floor(width * scale);
+    const finalHeight = Math.floor(rawHeight * scale);
+
     const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = width;
+    finalCanvas.width = finalWidth;
     finalCanvas.height = finalHeight;
     const fCtx = finalCanvas.getContext('2d')!;
+
+    // Scaling support
+    if (scale < 1) {
+        fCtx.scale(scale, scale);
+        console.warn(`[Canvas] Scaling down result from ${rawHeight}px to ${finalHeight}px for stability.`);
+    }
 
     // Draw the top header / 绘制顶部状态栏（仅取第一帧的顶部）
     const headImg = await loadImage(frameUrls[0]);
@@ -244,6 +258,8 @@ export async function processFramesClient(frameUrls: string[], onProgress?: (p: 
         if (f.data) {
             tCtx.putImageData(f.data, 0, 0);
             fCtx.drawImage(tempCanvas, 0, headerH + f.globalY);
+            // Help GC / 帮助垃圾回收
+            f.data = null;
         }
         if (onProgress) onProgress(60 + Math.floor((i / drawingFrames.length) * 35));
     }
@@ -251,14 +267,19 @@ export async function processFramesClient(frameUrls: string[], onProgress?: (p: 
     // Draw the foot nav bar / 绘制底部导航栏（仅取有效内容的最低一帧的底部）
     const lowest = loadedFrames.find(f => f.status === 'VALID' && Math.abs(f.globalY - maxY) < 0.1);
     const footImg = lowest ? await loadImage(lowest.path!) : headImg;
-    fCtx.drawImage(footImg, 0, height - footerH, width, footerH, 0, finalHeight - footerH, width, footerH);
+    fCtx.drawImage(footImg, 0, height - footerH, width, footerH, 0, rawHeight - footerH, width, footerH);
+
+    // Cleanup temp data
+    tempCanvas.width = 0;
+    tempCanvas.height = 0;
 
     return new Promise((r) => {
+        // Use JPEG for results to save significant RAM on mobile / 使用 JPEG 输出以大幅节省手机内存
         finalCanvas.toBlob(blob => {
             const url = URL.createObjectURL(blob!);
             if (onProgress) onProgress(100);
-            r({ imageUrl: url, width, height: finalHeight });
-        }, 'image/png');
+            r({ imageUrl: url, width: finalWidth, height: finalHeight });
+        }, 'image/jpeg', CONFIG.OUTPUT_QUALITY);
     });
 }
 
