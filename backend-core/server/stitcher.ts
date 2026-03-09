@@ -25,6 +25,7 @@ const CONFIG = {
     STITCH_DYNAMIC_THRESHOLD_SLOPE: 150,
     MAX_SHIFT_RATIO: 0.65, // Max 65% height per frame
     VELOCITY_LIMIT_RATIO: 0.25, // Max 25% change in shift per frame
+    MAX_CANVAS_HEIGHT: 32767, // node-canvas / Cairo limit
 };
 
 export interface StitchResult {
@@ -319,13 +320,21 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
         if (validFramesCount <= 1) throw new Error("Could not find enough valid frames to stitch.");
 
         // --- Pass 3: Drawing ---
-        const stitchedHeight = maxY - minY + contentH;
-        const finalStitchedHeight = stitchedHeight + headerH + footerH;
+        const rawHeight = maxY - minY + contentH + headerH + footerH;
+        const scale = rawHeight > CONFIG.MAX_CANVAS_HEIGHT ? CONFIG.MAX_CANVAS_HEIGHT / rawHeight : 1;
 
-        console.log(`[STITCH] Final dimensions: ${width}x${finalStitchedHeight}`);
-        const finalCanvas = createCanvas(width, finalStitchedHeight);
+        const finalWidth = Math.floor(width * scale);
+        const finalHeight = Math.floor(rawHeight * scale);
+
+        console.log(`[STITCH] Final dimensions: ${finalWidth}x${finalHeight} (Original: ${width}x${rawHeight}, Scale: ${scale.toFixed(4)})`);
+
+        const finalCanvas = createCanvas(finalWidth, finalHeight);
         const fCtx = finalCanvas.getContext('2d');
         if (!fCtx) throw new Error("Could not create final canvas context");
+
+        if (scale < 1) {
+            fCtx.scale(scale, scale);
+        }
 
         const drawingFrames = loadedFrames.filter(f => f.status === 'VALID');
 
@@ -346,7 +355,7 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
         // Draw Footer
         const lowestValidFrame = loadedFrames.slice().reverse().find(f => f.status === 'VALID' && Math.abs(f.globalY - maxY) < 0.1);
         const lowestImg = lowestValidFrame ? await loadImage(lowestValidFrame.path) : firstImg;
-        fCtx.drawImage(lowestImg, 0, height - footerH, width, footerH, 0, finalStitchedHeight - footerH, width, footerH);
+        fCtx.drawImage(lowestImg, 0, height - footerH, width, footerH, 0, rawHeight - footerH, width, footerH);
 
         console.log(`[STITCH] Drawing finished. Exporting...`);
 
@@ -364,7 +373,7 @@ export async function processVideo(videoPath: string, callback?: (progress: numb
             out.on('finish', () => {
                 console.log(`[STITCH] Result saved: ${outPath}`);
                 if (callback) callback(100);
-                resolve({ imageUrl: `/outputs/${outFileName}`, width, height: finalStitchedHeight });
+                resolve({ imageUrl: `/outputs/${outFileName}`, width: finalWidth, height: finalHeight });
             });
             out.on('error', (err) => {
                 console.error(`[STITCH] Stream Error:`, err);
