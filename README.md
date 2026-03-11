@@ -2,7 +2,7 @@
 
 [English] | [中文](./README_CN.md)
 
-**[Live Demo / Online Demo 🚀](https://hellosherwin.github.io/Looongimg/)**  
+**[Live Demo / Online Demo 🚀](https://hellosherwinnn.github.io/Looongimg/)**  
 > 💡 **Note**: The standalone web version (FFmpeg.wasm) is now fully compatible with **Mobile** browsers (iOS/Android). All video processing happens directly in your browser with high privacy.
 
 ## 💡 Why LooongImg?
