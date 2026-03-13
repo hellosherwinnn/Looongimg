@@ -46,3 +46,7 @@ backend-core/client/dist/
 *.njsproj
 *.sln
 *.swp
+
+# Agent skills
+.agents/
+skills-lock.json
