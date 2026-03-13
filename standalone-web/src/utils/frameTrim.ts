@@ -1,34 +1,53 @@
 export interface TrimmedFramesResult {
     trimmedFrameUrls: string[];
-    trimFrameCount: number;
+    startTrimFrameCount: number;
+    endTrimFrameCount: number;
 }
 
-export function clampEdgeTrimSeconds(value: number): number {
+export function clampTrimSeconds(value: number): number {
     if (!Number.isFinite(value)) {
         return 3;
     }
 
-    return Math.min(10, Math.max(0, Math.round(value)));
+    const stepped = Math.round(value * 2) / 2;
+    return Math.min(10, Math.max(0, stepped));
 }
 
 export function trimEdgeFrames(
     frameUrls: string[],
-    edgeTrimSeconds: number,
+    startTrimSeconds: number,
+    endTrimSeconds: number,
     extractionFps: number
 ): TrimmedFramesResult {
-    const safeSeconds = clampEdgeTrimSeconds(edgeTrimSeconds);
+    const safeStartSeconds = clampTrimSeconds(startTrimSeconds);
+    const safeEndSeconds = clampTrimSeconds(endTrimSeconds);
     const safeFps = Math.max(1, Math.round(extractionFps));
-    const trimFrameCount = Math.round(safeSeconds * safeFps);
+    
+    const startTrimFrameCount = Math.round(safeStartSeconds * safeFps);
+    const endTrimFrameCount = Math.round(safeEndSeconds * safeFps);
 
-    if (trimFrameCount === 0) {
+    if (startTrimFrameCount === 0 && endTrimFrameCount === 0) {
         return {
             trimmedFrameUrls: frameUrls,
-            trimFrameCount,
+            startTrimFrameCount,
+            endTrimFrameCount,
+        };
+    }
+
+    const startIndex = startTrimFrameCount;
+    const endIndex = frameUrls.length - endTrimFrameCount;
+
+    if (startIndex >= endIndex) {
+        return {
+            trimmedFrameUrls: [],
+            startTrimFrameCount,
+            endTrimFrameCount,
         };
     }
 
     return {
-        trimmedFrameUrls: frameUrls.slice(trimFrameCount, frameUrls.length - trimFrameCount),
-        trimFrameCount,
+        trimmedFrameUrls: frameUrls.slice(startIndex, endIndex),
+        startTrimFrameCount,
+        endTrimFrameCount,
     };
 }

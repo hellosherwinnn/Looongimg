@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Upload, Scissors, Download, RefreshCw, Play, CheckCircle2, AlertCircle, Layout, Smartphone } from 'lucide-react';
+import { Upload, Scissors, Download, RefreshCw, Play, CheckCircle2, AlertCircle, Layout, Smartphone, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { extractFramesClient } from './utils/ffmpegWorker';
 import { processFramesClient } from './utils/clientStitcher';
-import { clampEdgeTrimSeconds, trimEdgeFrames } from './utils/frameTrim';
+import { clampTrimSeconds, trimEdgeFrames } from './utils/frameTrim';
 
 interface StitchResult {
   imageUrl: string;
@@ -22,7 +22,8 @@ export default function App() {
   const [statusText, setStatusText] = useState('准备就绪');
   const [isMobile, setIsMobile] = useState(false);
   const [lowMemory, setLowMemory] = useState(false);
-  const [edgeTrimSeconds, setEdgeTrimSeconds] = useState(3);
+  const [startTrimSeconds, setStartTrimSeconds] = useState(3);
+  const [endTrimSeconds, setEndTrimSeconds] = useState(3);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -50,17 +51,33 @@ export default function App() {
     setError('请选择有效的视频文件 / Please select a valid video file');
   };
 
-  const handleEdgeTrimSecondsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStartTrimChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.valueAsNumber;
     if (Number.isNaN(value)) {
       return;
     }
-
-    setEdgeTrimSeconds(clampEdgeTrimSeconds(value));
+    setStartTrimSeconds(clampTrimSeconds(value));
   };
 
-  const normalizeEdgeTrimSeconds = () => {
-    setEdgeTrimSeconds((current) => clampEdgeTrimSeconds(current));
+  const handleEndTrimChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.valueAsNumber;
+    if (Number.isNaN(value)) {
+      return;
+    }
+    setEndTrimSeconds(clampTrimSeconds(value));
+  };
+
+  const adjustStartTrim = (delta: number) => {
+    setStartTrimSeconds((current) => clampTrimSeconds(current + delta));
+  };
+
+  const adjustEndTrim = (delta: number) => {
+    setEndTrimSeconds((current) => clampTrimSeconds(current + delta));
+  };
+
+  const normalizeTrimSeconds = () => {
+    setStartTrimSeconds((current) => clampTrimSeconds(current));
+    setEndTrimSeconds((current) => clampTrimSeconds(current));
   };
 
   const reset = () => {
@@ -120,10 +137,15 @@ export default function App() {
         throw new Error('No frames extracted / 无法从视频中提取有效帧');
       }
 
-      setStatusText(`正在应用首尾过滤: ${edgeTrimSeconds} 秒`);
+      setStatusText(`正在应用首尾过滤: 开头${startTrimSeconds}秒, 结尾${endTrimSeconds}秒`);
       setProgress(42);
 
-      const { trimmedFrameUrls, trimFrameCount } = trimEdgeFrames(frameUrls, edgeTrimSeconds, extractionFps);
+      const { trimmedFrameUrls, startTrimFrameCount, endTrimFrameCount } = trimEdgeFrames(
+        frameUrls, 
+        startTrimSeconds, 
+        endTrimSeconds, 
+        extractionFps
+      );
 
       if (trimmedFrameUrls.length < 2) {
         throw new Error('过滤秒数过大，剩余内容不足以生成长图');
@@ -140,7 +162,7 @@ export default function App() {
 
       setResult(stitchResult);
       setProgress(100);
-      setStatusText(`首尾各过滤了 ${trimFrameCount} 帧`);
+      setStatusText(`开头过滤了 ${startTrimFrameCount} 帧，结尾过滤了 ${endTrimFrameCount} 帧`);
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
     } catch (err: any) {
       console.error('Stitching Error:', err);
@@ -294,26 +316,74 @@ export default function App() {
                         </button>
                       </div>
 
-                      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <p className="text-sm font-bold text-blue-900">首尾过滤秒数</p>
-                            <p className="text-[11px] text-blue-700">
-                              开始和结束各跳过 {edgeTrimSeconds} 秒，不参与拼接计算
-                            </p>
+                      <div className="space-y-3">
+                        <p className="text-sm font-bold text-blue-900">首尾过滤秒数</p>
+                        <p className="text-[11px] text-blue-700 mb-3">
+                          单独调节开头和结尾的过滤时间，点击按钮或输入数字
+                        </p>
+                        
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white p-3">
+                          <span className="text-sm font-medium text-blue-900 shrink-0">开头过滤</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => adjustStartTrim(-0.5)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition hover:bg-blue-200 active:scale-95 text-lg font-bold"
+                              aria-label="减少开头过滤时间"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              max={10}
+                              step={0.5}
+                              inputMode="decimal"
+                              value={startTrimSeconds}
+                              onChange={handleStartTrimChange}
+                              onBlur={normalizeTrimSeconds}
+                              className="w-16 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-center text-sm font-semibold text-blue-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                              aria-label="开头过滤秒数"
+                            />
+                            <button
+                              onClick={() => adjustStartTrim(0.5)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition hover:bg-blue-200 active:scale-95 text-lg font-bold"
+                              aria-label="增加开头过滤时间"
+                            >
+                              +
+                            </button>
                           </div>
-                          <input
-                            type="number"
-                            min={0}
-                            max={10}
-                            step={1}
-                            inputMode="numeric"
-                            value={edgeTrimSeconds}
-                            onChange={handleEdgeTrimSecondsChange}
-                            onBlur={normalizeEdgeTrimSeconds}
-                            className="w-20 rounded-xl border border-blue-200 bg-white px-3 py-2 text-center text-sm font-semibold text-blue-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                            aria-label="首尾过滤秒数"
-                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white p-3">
+                          <span className="text-sm font-medium text-blue-900 shrink-0">结尾过滤</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => adjustEndTrim(-0.5)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition hover:bg-blue-200 active:scale-95 text-lg font-bold"
+                              aria-label="减少结尾过滤时间"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              max={10}
+                              step={0.5}
+                              inputMode="decimal"
+                              value={endTrimSeconds}
+                              onChange={handleEndTrimChange}
+                              onBlur={normalizeTrimSeconds}
+                              className="w-16 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-center text-sm font-semibold text-blue-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                              aria-label="结尾过滤秒数"
+                            />
+                            <button
+                              onClick={() => adjustEndTrim(0.5)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition hover:bg-blue-200 active:scale-95 text-lg font-bold"
+                              aria-label="增加结尾过滤时间"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -352,6 +422,85 @@ export default function App() {
                       <div className="flex items-center gap-3 rounded-2xl border border-green-100 bg-green-50 p-4 text-green-700">
                         <CheckCircle2 className="h-5 w-5 shrink-0" />
                         <p className="text-sm font-medium">拼接成功，长图已经生成。</p>
+                      </div>
+
+                      <div className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                        <p className="text-sm font-bold text-blue-900">重新调节裁剪时间</p>
+                        <p className="text-[11px] text-blue-700 mb-3">
+                          修改后点击重新生成，无需重新上传视频
+                        </p>
+                        
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white p-3">
+                          <span className="text-sm font-medium text-blue-900 shrink-0">开头过滤</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => adjustStartTrim(-0.5)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition hover:bg-blue-200 active:scale-95 text-lg font-bold"
+                              aria-label="减少开头过滤时间"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              max={10}
+                              step={0.5}
+                              inputMode="decimal"
+                              value={startTrimSeconds}
+                              onChange={handleStartTrimChange}
+                              onBlur={normalizeTrimSeconds}
+                              className="w-16 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-center text-sm font-semibold text-blue-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                              aria-label="开头过滤秒数"
+                            />
+                            <button
+                              onClick={() => adjustStartTrim(0.5)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition hover:bg-blue-200 active:scale-95 text-lg font-bold"
+                              aria-label="增加开头过滤时间"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white p-3">
+                          <span className="text-sm font-medium text-blue-900 shrink-0">结尾过滤</span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => adjustEndTrim(-0.5)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition hover:bg-blue-200 active:scale-95 text-lg font-bold"
+                              aria-label="减少结尾过滤时间"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              max={10}
+                              step={0.5}
+                              inputMode="decimal"
+                              value={endTrimSeconds}
+                              onChange={handleEndTrimChange}
+                              onBlur={normalizeTrimSeconds}
+                              className="w-16 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-center text-sm font-semibold text-blue-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                              aria-label="结尾过滤秒数"
+                            />
+                            <button
+                              onClick={() => adjustEndTrim(0.5)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition hover:bg-blue-200 active:scale-95 text-lg font-bold"
+                              aria-label="增加结尾过滤时间"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={startStitching}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 active:scale-[0.98]"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          重新生成
+                        </button>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
