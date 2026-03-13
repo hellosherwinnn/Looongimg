@@ -107,7 +107,7 @@ export async function extractFramesClient(
     fps: number = 30,
     onProgress?: (progress: number | string) => void,
     options: { lowMemory?: boolean } = {}
-): Promise<string[]> {
+): Promise<{ frameUrls: string[]; extractionFps: number }> {
     console.log("extractFramesClient started for file:", videoFile.name, "LowMemory:", options.lowMemory);
     const ffmpeg = await loadFFmpeg((msg) => onProgress?.(msg));
 
@@ -164,5 +164,8 @@ export async function extractFramesClient(
     await ffmpeg.deleteFile(inputName);
     console.log("Cleanup finished, returning URLs");
 
-    return frameUrls;
+    return {
+        frameUrls,
+        extractionFps,
+    };
 }
